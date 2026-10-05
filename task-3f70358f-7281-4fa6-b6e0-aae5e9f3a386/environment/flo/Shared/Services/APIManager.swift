@@ -1,0 +1,231 @@
+//
+//  APIManager.swift
+//  flo
+//
+//  Created by rizaldy on 08/06/24.
+//
+
+import Alamofire
+import Foundation
+import Pulse
+
+// TODO: refactor this
+struct NetworkLoggerEventMonitor: EventMonitor {
+  var logger: NetworkLogger = .shared
+
+  func request(_ request: Request, didCreateTask task: URLSessionTask) {
+    logger.logTaskCreated(task)
+  }
+
+  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    logger.logDataTask(dataTask, didReceive: data)
+  }
+
+  func urlSession(
+    _ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics
+  ) {
+    logger.logTask(task, didFinishCollecting: metrics)
+  }
+
+  func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+    logger.logTask(task, didCompleteWithError: error)
+  }
+}
+
+class APIManager {
+  static let shared = APIManager()
+
+  private(set) var session: Alamofire.Session
+
+  private init() {
+    session = Self.createSession()
+  }
+
+  /// Test-only hook: extra URLProtocol subclasses to register on the session.
+  static var extraProtocolClasses: [AnyClass] = []
+
+  private static func createSession() -> Session {
+    LoggerStore.shared.removeAll()
+
+    let configuration = URLSessionConfiguration.default
+    configuration.timeoutIntervalForRequest = 30
+
+    if !extraProtocolClasses.isEmpty {
+      configuration.protocolClasses = extraProtocolClasses + (configuration.protocolClasses ?? [])
+    }
+
+    let retrier = RetryPolicy(retryLimit: 3)
+    let monitor = NetworkLoggerEventMonitor()
+
+    return Alamofire.Session(
+      configuration: configuration, interceptor: retrier,
+      eventMonitors: UserDefaultsManager.enableDebug ? [monitor] : [])
+  }
+
+  func reconfigureSession() {
+    session = Self.createSession()
+  }
+
+  func NDEndpointRequest<T: Decodable>(
+    endpoint: String, method: HTTPMethod = .get, parameters: Parameters?,
+    encoding: ParameterEncoding = URLEncoding.queryString, timeout: TimeInterval? = nil,
+    completion: @escaping (DataResponse<T, AFError>) -> Void
+  ) {
+    let authSession = AuthService.shared.sessionSnapshot()
+    let token = authSession.ndToken
+
+    let url = "\(UserDefaultsManager.serverBaseURL)\(endpoint)"
+    let headers: HTTPHeaders = [API.NDAuthHeader: "Bearer \(token)"]
+
+    session.request(
+      url, method: method, parameters: parameters, encoding: encoding, headers: headers,
+      requestModifier: { request in
+        if let timeout = timeout {
+          request.timeoutInterval = timeout
+        }
+      }
+    )
+    .validate(statusCode: 200..<300)
+    .responseDecodable(of: T.self) { response in
+      Self.notifyIfSessionExpired(
+        response: response.response, error: response.error, authSession: authSession)
+      completion(response)
+    }
+  }
+
+  func SubsonicEndpointRequest<T: Decodable>(
+    endpoint: String, method: HTTPMethod = .get, parameters: Parameters?,
+    encoding: ParameterEncoding = URLEncoding.queryString, timeout: TimeInterval? = nil,
+    completion: @escaping (DataResponse<T, AFError>) -> Void
+  ) {
+
+    // FIXME: refactor getCreds(key: "subsonicToken")
+    let authSession = AuthService.shared.sessionSnapshot()
+    let url =
+      "\(UserDefaultsManager.serverBaseURL)\(endpoint)\(authSession.subsonicCredentials)"
+
+    session.request(
+      url, method: method, parameters: parameters, encoding: encoding,
+      requestModifier: { request in
+        if let timeout = timeout {
+          request.timeoutInterval = timeout
+        }
+      }
+    )
+    .validate(statusCode: 200..<300)
+    .responseDecodable(of: T.self) { response in
+      Self.notifyIfSessionExpired(
+        response: response.response, error: response.error, authSession: authSession)
+      completion(response)
+    }
+  }
+
+  // FIXME: refactor later
+  func SubsonicEndpointDownloadNew(
+    endpoint: String, method: HTTPMethod = .get, parameters: Parameters?,
+    encoding: ParameterEncoding = URLEncoding.queryString,
+    progressUpdate: ((Double) -> Void)?,
+    completion: @escaping (Result<URL, AFError>) -> Void
+  ) -> DownloadRequest {
+
+    // FIXME: refactor getCreds(key: "subsonicToken")
+    let url =
+      "\(UserDefaultsManager.serverBaseURL)\(endpoint)\(AuthService.shared.getCreds(key: "subsonicToken"))"
+
+    return session.download(
+      url, method: method, parameters: parameters, encoding: encoding,
+      requestModifier: { $0.timeoutInterval = 60 }
+    )
+    .downloadProgress { progressValue in
+      progressUpdate?(progressValue.fractionCompleted * 100)
+    }
+    .validate()
+    .responseURL { response in
+      switch response.result {
+      case .success(let fileURL):
+        completion(.success(fileURL))
+      case .failure(let error):
+        completion(.failure(error))
+      }
+    }
+  }
+
+  func SubsonicEndpointDownload(
+    endpoint: String, method: HTTPMethod = .get, parameters: Parameters?,
+    encoding: ParameterEncoding = URLEncoding.queryString,
+    completion: @escaping (Result<URL, AFError>) -> Void
+  ) {
+
+    // FIXME: refactor getCreds(key: "subsonicToken")
+    let url =
+      "\(UserDefaultsManager.serverBaseURL)\(endpoint)\(AuthService.shared.getCreds(key: "subsonicToken"))"
+
+    session.download(
+      url, method: method, parameters: parameters, encoding: encoding,
+      requestModifier: { $0.timeoutInterval = 60 }
+    )
+    .validate()
+    .responseURL { response in
+      switch response.result {
+      case .success(let fileURL):
+        completion(.success(fileURL))
+      case .failure(let error):
+        completion(.failure(error))
+      }
+    }
+  }
+}
+
+extension APIManager {
+  /// Posts .sessionExpired when the underlying HTTP response is 401/403.
+  /// Centralizes ghost-session recovery so NDEndpoint + Subsonic callers do
+  /// not need to duplicate status-code inspection.
+  fileprivate static func notifyIfSessionExpired(
+    response: HTTPURLResponse?, error: AFError?, authSession: AuthSessionSnapshot
+  ) {
+    let status = response?.statusCode ?? error?.responseCode
+    guard let code = status, code == 401 || code == 403 else { return }
+    DispatchQueue.main.async {
+      NotificationCenter.default.post(name: .sessionExpired, object: authSession)
+    }
+  }
+
+  func login<T: Decodable>(
+    endpoint: String, parameters: Parameters?,
+    completion: @escaping (DataResponse<T, AFError>) -> Void
+  ) {
+    session.request(
+      endpoint,
+      method: .post,
+      parameters: parameters,
+      encoding: JSONEncoding.default,
+      requestModifier: { request in
+        request.timeoutInterval = 10
+      }
+    )
+    .validate(statusCode: 200..<300)
+    .responseDecodable(of: T.self) { response in
+      completion(response)
+    }
+  }
+  func externalRequest<T: Decodable>(
+    url: String,
+    method: HTTPMethod = .get,
+    parameters: Parameters? = nil,
+    encoding: ParameterEncoding = URLEncoding.queryString,
+    headers: HTTPHeaders? = nil,
+    completion: @escaping (DataResponse<T, AFError>) -> Void
+  ) {
+    session.request(
+      url, method: method, parameters: parameters, encoding: encoding, headers: headers
+    )
+    .validate(statusCode: 200..<300)
+    .responseDecodable(of: T.self) { response in
+      completion(response)
+    }
+  }
+}
+
+extension Notification.Name {
+  static let sessionExpired = Notification.Name("flo.sessionExpired")
+}

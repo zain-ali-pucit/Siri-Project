@@ -483,6 +483,22 @@ tap_preferences() {
   appium_tap Preferences || appium_tap gear
 }
 
+# Does the Max Bitrate picker show this value and no other one?
+bitrate_shows() {
+  appium_page_source bitrate.xml
+  python3 - "$ARTIFACTS/bitrate.xml" "$1" <<'PY'
+import sys, xml.etree.ElementTree as ET
+values = {"Source", "32", "48", "64", "80", "96", "112", "128", "160", "192", "224", "256", "320"}
+root = ET.parse(sys.argv[1]).getroot()
+for el in root.iter():
+    if el.get("name") == "maxBitratePicker":
+        words = " ".join((n.get("label") or "") + " " + (n.get("value") or "") for n in el.iter())
+        shown = set(words.replace(",", " ").split()) & values
+        sys.exit(0 if shown == {sys.argv[2]} else 1)
+sys.exit(1)
+PY
+}
+
 # The list can be scrolled anywhere after the tab bar changes, so look both ways.
 find_row() {
   appium_scroll_to "$1" 15 down || appium_scroll_to "$1" 15 up
@@ -516,18 +532,16 @@ wait_tab Search gone || fail "After a relaunch, the Search tab is back."
 
 tap_preferences || fail "After a relaunch, the Preferences tab could not be tapped."
 find_row maxBitratePicker || fail "No element maxBitratePicker in Preferences."
-appium_page_source bitrate.xml
-python3 - "$ARTIFACTS/bitrate.xml" <<'PY' || fail "After the reset and a relaunch, Max Bitrate does not show Source."
-import sys, xml.etree.ElementTree as ET
-root = ET.parse(sys.argv[1]).getroot()
-for el in root.iter():
-    if el.get("name") == "maxBitratePicker":
-        words = " ".join((n.get("label") or "") + " " + (n.get("value") or "") for n in el.iter())
-        sys.exit(0 if "Source" in words and "320" not in words else 1)
-sys.exit(1)
-PY
-
+bitrate_shows Source || fail "After the reset and a relaunch, Max Bitrate does not show Source."
 appium_screenshot relaunch.png
+
+# Max Bitrate can still be picked by hand after the reset.
+appium_tap maxBitratePicker || fail "maxBitratePicker could not be tapped."
+appium_tap 128 || fail "The Max Bitrate picker does not offer 128."
+find_row maxBitratePicker || fail "After picking 128, maxBitratePicker is gone."
+bitrate_shows 128 || fail "After picking 128 by hand, Max Bitrate does not show 128."
+
+appium_screenshot manual.png
 pass
 # ---- END OF CHECK BLOCK: do not edit below this line ----
 siri_check_block_done

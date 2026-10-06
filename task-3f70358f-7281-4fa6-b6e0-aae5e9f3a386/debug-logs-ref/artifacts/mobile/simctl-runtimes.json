@@ -1562,7 +1562,7 @@
       "runtimeRoot" : "\/Library\/Developer\/CoreSimulator\/Volumes\/iOS_23E244\/Library\/Developer\/CoreSimulator\/Profiles\/Runtimes\/iOS 26.4.simruntime\/Contents\/Resources\/RuntimeRoot",
       "lastUsage" : {
         "arm64" : "0001-01-01T00:00:00Z",
-        "x86_64" : "2026-10-05T19:11:42Z"
+        "x86_64" : "2026-10-05T21:35:22Z"
       },
       "name" : "iOS 26.4"
     },
@@ -1802,7 +1802,7 @@
       "runtimeRoot" : "\/Library\/Developer\/CoreSimulator\/Volumes\/watchOS_23T240b\/Library\/Developer\/CoreSimulator\/Profiles\/Runtimes\/watchOS 26.4.simruntime\/Contents\/Resources\/RuntimeRoot",
       "lastUsage" : {
         "arm64" : "0001-01-01T00:00:00Z",
-        "x86_64" : "2026-10-05T19:10:26Z"
+        "x86_64" : "2026-10-05T21:34:07Z"
       },
       "name" : "watchOS 26.4"
     }

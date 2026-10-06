@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <AppiumAUT>
-  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="flo" label="flo" enabled="true" visible="true" accessible="false" x="0" y="0" width="402" height="874" index="0" traits="" processId="36746" bundleId="com.penerbangwalet.flo">
+  <XCUIElementTypeApplication type="XCUIElementTypeApplication" name="flo" label="flo" enabled="true" visible="true" accessible="false" x="0" y="0" width="402" height="874" index="0" traits="" processId="52659" bundleId="com.penerbangwalet.flo">
     <XCUIElementTypeWindow type="XCUIElementTypeWindow" enabled="true" visible="true" accessible="false" x="0" y="0" width="402" height="874" index="0" traits="">
       <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="402" height="874" index="0" traits="">
         <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="0" y="0" width="402" height="874" index="0" traits="">
@@ -228,8 +228,8 @@
                                           <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="781" width="370" height="123" index="0" traits="">
                                             <XCUIElementTypeOther type="XCUIElementTypeOther" enabled="true" visible="true" accessible="false" x="16" y="781" width="370" height="123" index="0" traits="">
                                               <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Max Bitrate" name="Max Bitrate" label="Max Bitrate" enabled="true" visible="false" accessible="false" x="32" y="796" width="87" height="28" index="0" traits="StaticText"/>
-                                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="maxBitratePicker" label="Max Bitrate, Source" enabled="true" visible="true" accessible="true" x="32" y="787" width="338" height="44" index="1" traits="Button">
-                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Source" name="Source" label="Source" enabled="true" visible="false" accessible="false" x="300" y="794" width="54" height="30" index="0" traits="StaticText"/>
+                                              <XCUIElementTypeButton type="XCUIElementTypeButton" name="maxBitratePicker" label="Max Bitrate, 128" enabled="true" visible="true" accessible="true" x="32" y="787" width="338" height="44" index="1" traits="Button">
+                                                <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="128" name="128" label="128" enabled="true" visible="false" accessible="false" x="325" y="794" width="29" height="30" index="0" traits="StaticText"/>
                                               </XCUIElementTypeButton>
                                               <XCUIElementTypeStaticText type="XCUIElementTypeStaticText" value="Currently the output format is MP3 due to compatibility issues; however, MP3 is less efficient in streaming at lower bitrates compared to modern codecs like Opus." name="Currently the output format is MP3 due to compatibility issues; however, MP3 is less efficient in streaming at lower bitrates compared to modern codecs like Opus." label="Currently the output format is MP3 due to compatibility issues; however, MP3 is less efficient in streaming at lower bitrates compared to modern codecs like Opus." enabled="true" visible="false" accessible="true" x="32" y="827" width="335" height="62" index="2" traits="StaticText"/>
                                             </XCUIElementTypeOther>
